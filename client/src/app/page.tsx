@@ -1,105 +1,254 @@
-import Image from "next/image";
+"use client";
 
-//https://github.com/weakhoes/Roblox-UI-Libs
+import { useEffect, useState, useRef } from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import clsx from "clsx";
 
-export default function Home() {
+const greetings = [
+  "Hello",
+  "Hi",
+  "Hey",
+  "Howdy",
+  "Greetings",
+  "Welcome",
+  "Good day",
+  "Good morning",
+  "Good afternoon",
+  "Good evening",
+  "Salutations",
+  "What's up",
+  "Yo",
+  "Ahoy",
+  "Bonjour",
+  "Hola",
+  "Ciao",
+  "Olá",
+  "Hallo",
+  "Hej",
+  "Salut",
+  "Shalom",
+  "Konnichiwa",
+  "Annyeong",
+  "Namaste",
+  "Sawubona",
+  "Merhaba",
+  "Privet",
+  "G'day",
+  "Aloha",
+];
+
+const uid = () => crypto.randomUUID();
+
+const debounce = (fn: (...a: any[]) => void, ms = 400) => {
+  let h: ReturnType<typeof setTimeout>;
+  return (...args: any[]) => {
+    clearTimeout(h);
+    h = setTimeout(() => fn(...args), ms);
+  };
+};
+
+interface Task {
+  id: string;
+  label: string;
+  done: boolean;
+}
+
+export default function Page() {
+  const [greeting, setGreeting] = useState("");
+  const [dateStr, setDateStr] = useState("");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [newLabel, setNewLabel] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // ------------------ LIFECYCLE ------------------ //
+  useEffect(() => {
+    const now = new Date();
+    setGreeting(`👋 ${greetings[Math.floor(Math.random() * greetings.length)]}, Danny`);
+    setDateStr(
+      now.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    );
+  }, []);
+
+  // Load tasks from localStorage – or seed defaults (at least 1)
+  useEffect(() => {
+    const raw = localStorage.getItem("daily-planner-tasks");
+    if (raw) {
+      const parsed: Task[] = JSON.parse(raw);
+      setTasks(parsed.length ? parsed : [{ id: uid(), label: "Task 1", done: false }]);
+    } else {
+      setTasks([{ id: uid(), label: "Task 1", done: false }]);
+    }
+  }, []);
+
+  // Persist tasks (debounced)
+  const debouncedSave = useRef(
+    debounce((next: Task[]) => {
+      localStorage.setItem("daily-planner-tasks", JSON.stringify(next));
+    }, 500)
+  ).current;
+
+  useEffect(() => {
+    debouncedSave(tasks);
+  }, [tasks, debouncedSave]);
+
+  // ------------------ HELPERS ------------------ //
+  const toggle = (id: string, done: boolean) =>
+    setTasks((t) => t.map((task) => (task.id === id ? { ...task, done } : task)));
+
+  const addTask = () => {
+    if (!newLabel.trim()) return;
+    setTasks((t) => [...t, { id: uid(), label: newLabel.trim(), done: false }]);
+    setNewLabel("");
+    inputRef.current?.focus();
+  };
+
+  const deleteTask = (id: string) =>
+    setTasks((t) => (t.length > 1 ? t.filter((task) => task.id !== id) : t));
+
+  const clearCompleted = () =>
+    setTasks((t) => {
+      const remaining = t.filter((task) => !task.done);
+      return remaining.length ? remaining : t; // keep list non‑empty
+    });
+
+  const startEdit = (id: string) => setEditingId(id);
+  const saveEdit = (id: string, label: string) => {
+    setTasks((t) =>
+      t.map((task) => (task.id === id ? { ...task, label: label.trim() || task.label } : task))
+    );
+    setEditingId(null);
+  };
+
+  // ------------------ METRICS ------------------ //
+  const total = tasks.length;
+  const completed = tasks.filter((t) => t.done).length;
+  const pct = total ? Math.round((completed / total) * 100) : 0;
+
+  if (!greeting) return null;
+
+  // ------------------ UI ------------------ //
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen flex items-center justify-center p-6 sm:p-10">
+      <Card className="w-full max-w-full sm:max-w-lg bg-zinc-900 text-neutral-200 shadow-xl/30 rounded-2xl px-6 py-6">
+        {/* --------- HEADER --------- */}
+        <CardHeader className="pb-4 space-y-2 px-6 pt-8 sm:pt-10">
+          <CardTitle className="text-primary-200 tracking-wide text-lg sm:text-xl">
+            {dateStr}
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            {greeting}
+          </CardDescription>
+        </CardHeader>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+        {/* --------- PROGRESS --------- */}
+        <div className="px-6 pb-6">
+          <Progress value={pct} className="h-3 rounded bg-zinc-800">
+            <div
+              style={{ width: `${pct}%` }}
+              className="h-full rounded bg-gradient-to-r from-blue-700 to-blue-800 transition-all"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </Progress>
+          <p className="pt-3 text-xs text-right text-muted-foreground">
+            {completed}/{total} done
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* --------- TASK LIST --------- */}
+        <CardContent className="space-y-4 pb-6 px-6">
+          {tasks.map((task) => (
+            <div key={task.id} className="group flex items-center gap-3" role="listitem">
+              <Checkbox
+                id={task.id}
+                checked={task.done}
+                onCheckedChange={(val) => toggle(task.id, !!val)}
+                className="border-white cursor-pointer data-[state=checked]:bg-primary data-[state=checked]:border-white"
+                aria-label={task.label}
+              />
+              {editingId === task.id ? (
+                <Input
+                  defaultValue={task.label}
+                  onBlur={(e) => saveEdit(task.id, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="h-7 w-full bg-transparent border-b border-zinc-600 px-1 text-sm focus-visible:ring-0"
+                  autoFocus
+                />
+              ) : (
+                <label
+                  htmlFor={task.id}
+                  onDoubleClick={() => startEdit(task.id)}
+                  className={clsx(
+                    "flex-1 text-sm select-none cursor-pointer",
+                    task.done && "line-through opacity-50"
+                  )}
+                >
+                  {task.label}
+                </label>
+              )}
+              <button
+                onClick={() => deleteTask(task.id)}
+                className="cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground text-xs"
+                aria-label="Delete task"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </CardContent>
+
+        {/* --------- FOOTER --------- */}
+        <CardFooter className="flex flex-col gap-5 px-6 pb-4">
+          {/* Add Task */}
+          <div className="flex w-full gap-3 items-center">
+            <Input
+              ref={inputRef}
+              placeholder="Add a task…"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              onKeyDown={(e) => (e.key === "Enter" ? addTask() : null)}
+              className="bg-zinc-800 border-zinc-700 h-10 text-sm flex-1"
+            />
+            <Button
+              onClick={addTask}
+              disabled={!newLabel.trim()}
+              className="cursor-pointer h-10 px-5"
+            >
+              Add
+            </Button>
+          </div>
+
+          {/* Clear Completed */}
+          <div className="flex w-full items-center justify-between text-xs text-muted-foreground pt-2">
+            <span>{pct === 100 ? "🎉 All done!" : ""}</span>
+            <button
+              onClick={clearCompleted}
+              disabled={completed === 0}
+              className="cursor-pointer hover:underline"
+            >
+              Clear completed
+            </button>
+          </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
